@@ -15,11 +15,10 @@ from docopt import docopt
 
 logger = logging.getLogger(__name__)
 
-#start the indexing from the main page of Wikipedia
-#list(map(lambda x:x.lower().replace(' ', '_'), wikipedia.page("Python").links))
 
 def bfs (start_page, end_page) :
-    if end_page in list(map(lambda x: x.lower().replace(' ', '_'), wikipedia.page("python_(programming_language)").links)):
+    link_list = map(lambda x: x.lower().replace(' ', '_'), wikipedia.page(start_page).links)
+    if end_page in list(link_list):
         logger.debug(f"FOUND: {end_page} is in {start_page}")
     else:
         logger.debug(f"NOT FOUND: {end_page} not found in {start_page}. Moving down the tree")
@@ -35,6 +34,5 @@ def main():
 
     start_page = args['--start-page']
     end_page = args['--end-page']
-    print(end_page.split('/')[-1].lower())
 
     bfs(start_page.split('/')[-1].lower(), end_page.split('/')[-1].lower())
