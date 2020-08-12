@@ -17,7 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 def bfs (start_page, end_page, depth=0, trace=[]) :
-    link_list = list(map(lambda x: x.lower().replace(' ', '_'), wikipedia.page(start_page).links))
+    try:
+        link_list = list(map(lambda x: x.lower().replace(' ', '_'), wikipedia.page(start_page).links))
+    except (wikipedia.exceptions.DisambiguationError, wikipedia.exceptions.PageError) :
+        print(f"skipping {start_page}")
+        return False
+
     if end_page in link_list:
         logger.debug(f"FOUND: {end_page} is in {start_page}")
         return True
@@ -34,7 +39,7 @@ def main():
     logger.debug("starting crawler")
 
     argv = sys.argv[1:]
-    args = docopt(__doc__, argv=argv) 
+    args = docopt(__doc__, argv=argv)
 
     logger.debug("args: \n%s " % args)
 
