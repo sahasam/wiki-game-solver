@@ -10,11 +10,12 @@ Options:
 import logging
 import sys
 import wikipedia
+import threading
+import queue
 
 from docopt import docopt
 
 logger = logging.getLogger(__name__)
-
 
 def bfs (start_page, end_page, depth=0, trace=[]) :
     """
@@ -46,21 +47,49 @@ def bfs (start_page, end_page, depth=0, trace=[]) :
                 return True
         return False
 
-def bfs_threaded (start_page, end_page, depth=0, trace=[]):
-    import threading
-    import threading.Lock
-    import queue
+def bfs_threaded (start_page, end_page):
     """
     a multithreaded breadth first search
     Recursively searches every link to a depth of 5, but has three worker threads to speed up the process
     """
     pageQueue = queue.Queue()
-    t1 = threading.Thread(target=bfs_worker_thread)
-    t2 = threading.Thread(target=bfs_worker_thread)
-    t3 = threading.Thread(target=bfs_worker_thread)
+    t1 = threading.Thread(target=bfs_worker_thread, args=(pageQueue, end_page))
+    t2 = threading.Thread(target=bfs_worker_thread, args=(pageQueue, end_page))
+    t3 = threading.Thread(target=bfs_worker_thread, args=(pageQueue, end_page))
     t1.start()
     t2.start()
     t3.start()
+
+    pageQueue.put((start_page, 0))
+
+    t1.join()
+    t2.join()
+    t3.join()
+
+def bfs_worker_thread(pageQueue, end_page) :
+    while True:
+        task = pageQueue.get()
+        wiki_page = task[0]
+        depth = task[1]
+        try:
+            link_list = list(map(lambda x: x.lower().replace(' ','_'), wikipedia.page(wiki_page).links))
+        except (wikipedia.exceptions.DisambiguationError, wikipedia.exceptions.PageError) :
+            logger.warning(f"skipping {wiki_page}")
+            pageQueue.task_done()
+            continue
+
+        if end_page in link_list:
+            #TODO: figure out how to stop threads when page is found
+            logger.debug(f"FOUND: {end_page} is in {wiki_page}")
+            pageQueue.task_done()
+            continue
+        else:
+            logger.debug(f"NOT FOUND: {end_page} not found in {wiki_page}.")
+            if depth >= 5:
+                pageQueue.task_done()
+                continue
+            for link in link_list :
+                pageQueue.put((link, depth+1))
 
 def main():
     logger.debug("starting crawler")
@@ -73,4 +102,6 @@ def main():
     start_page = args['--start-page']
     end_page = args['--end-page']
 
-    bfs(start_page.split('/')[-1].lower(), end_page.split('/')[-1].lower())
+    bfs_threaded(start_page.split('/')[-1].lower(), end_page.split('/')[-1].lower())
+
+
